@@ -1,70 +1,44 @@
-import cv2
+import cv2 as cv
 import numpy as np
-import pygame
-from OpenGL.GL import *
-from OpenGL.GLUT import *
-from OpenGL.GLU import *
-from camera1 import capture_image
-from camera2 import detect_face
 
-def init_3d_environment():
-    """Initialize a basic 3D environment with OpenGL."""
-    glClearColor(0.0, 0.0, 0.0, 1.0)  # Set background color to black
-    glEnable(GL_DEPTH_TEST)  # Enable depth testing for 3D effects
-    gluPerspective(45, 1.0, 0.1, 50.0)  # Setup perspective projection
+print('Launching virtual3d.')
 
-def draw_3d_object():
-    """Draw a simple 3D cube for visualization."""
-    glPushMatrix()
-    glRotatef(30, 1, 1, 0)  # Rotate the object for effect
-    glBegin(GL_QUADS)
+# make sure the xml model file is in same directory as this program.
+face_cascade = cv.CascadeClassifier('haarcascade_frontalface_default.xml')
 
-    # Cube vertices (a simple cube centered at origin)
-    vertices = [
-        [-1, -1, -1], [1, -1, -1], [1, 1, -1], [-1, 1, -1],
-        [-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1]
-    ]
 
-    # Define the faces of the cube
-    faces = [
-        [0, 1, 2, 3], [3, 2, 6, 7], [7, 6, 5, 4], [4, 5, 1, 0],
-        [1, 5, 6, 2], [4, 0, 3, 7]
-    ]
+cap = cv.VideoCapture(0)
+if not cap.isOpened():
+    print("Cannot open camera")
+    exit()
+while True:
+    # Capture frame-by-frame
+    ret, frame = cap.read()
+ 
+    # if frame is read correctly ret is True
+    if not ret:
+        print("Can't receive frame (stream end?). Exiting ...")
+        break
+    # Our operations on the frame come here
+    gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
 
-    # Draw each face
-    for face in faces:
-        glColor3fv((1, 0, 0))  # Set color to red
-        for vertex in face:
-            glVertex3fv(vertices[vertex])
+    # Detect faces
+    #   detectMultScale returns an 2d ndarray
+    faces = face_cascade.detectMultiScale(gray)
+    print('detected face(s) at:', faces)
 
-    glEnd()
-    glPopMatrix()
+    # Draw rectangle around the faces
+    for (x, y, w, h) in faces:
+      cv.rectangle(gray, (x, y), (x+w, y+h), (0, 255, 255), 5)
+      cv.rectangle(gray, (x-5, y-5), (x+w+5, y+h+5), (0, 0, 0), 5)
 
-def main():
-    # Initialize camera and capture photo
-    capture_image("user_photo.jpg")
 
-    # Perform face detection on the captured photo
-    detect_face("user_photo.jpg")
-
-    # Initialize pygame and OpenGL
-    pygame.init()
-    display = (800, 600)
-    pygame.display.set_mode(display, pygame.DOUBLEBUF | pygame.OPENGL)
-
-    init_3d_environment()
-
-    # Main loop for 3D rendering
-    while True:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                quit()
-
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)  # Clear screen and depth buffer
-        draw_3d_object()  # Draw a rotating cube
-        pygame.display.flip()  # Update the display
-        pygame.time.wait(10)  # Control the frame rate
-
-if __name__ == "__main__":
-    main()
+    # Display the resulting frame
+    cv.imshow('frame', gray)
+    if cv.waitKey(1) == ord('q'):
+        break
+ 
+# When everything done, release the capture
+cap.release()
+cv.destroyAllWindows()
+print('virtual3d complete.')
